@@ -16,23 +16,31 @@ struct ContentView: View {
     @State private var errorMessage = ""
     @State private var showingError = false
     
+    @State private var currentScore = 0
+    
     var body: some View {
         NavigationView {
-            List {
-                Section {
-                    TextField("Enter your word", text: $newWord)
-                        .autocapitalization(.none)
-                }
-                
-                Section {
-                    ForEach(usedWords, id: \.self) { word in
-                        HStack {
-                            Image(systemName: "\(word.count).circle")
-                            Text(word)
+            VStack {
+                List {
+                    Section {
+                        TextField("Enter your word", text: $newWord)
+                            .autocapitalization(.none)
+                    }
+                    
+                    Section {
+                        ForEach(usedWords, id: \.self) { word in
+                            HStack {
+                                Image(systemName: "\(word.count).circle")
+                                Text(word)
+                            }
                         }
                     }
                 }
+                Text("Score: \(currentScore)")
+                    .font(.title.bold())
+                    .padding()
             }
+            
             .navigationTitle(rootWord)
             .onSubmit(addNewWord)
             .onAppear(perform: startGame)
@@ -41,8 +49,12 @@ struct ContentView: View {
             } message: {
                 Text(errorMessage)
             }
+            .toolbar {
+                Button("New Word", action: startGame)
+            }
         }
     }
+    
     func addNewWord() {
         let answer = newWord.lowercased().trimmingCharacters(in: .whitespacesAndNewlines)
         guard answer.count > 0 else { return }
@@ -62,9 +74,20 @@ struct ContentView: View {
             return
         }
         
+        guard isRootWord(word: answer) else {
+            wordError(title: "Word is the same as root word.", message: "Try making a word other than the word itself")
+            return
+        }
+        
+        guard isShortWord(word: answer) else {
+            wordError(title: "Word too short", message: "Words less than 3 letters are not allowed!")
+            return
+        }
+        
         withAnimation {
             usedWords.insert(answer, at: 0)
         }
+        currentScore = answer.count + currentScore
         newWord = ""
     }
     
@@ -73,6 +96,8 @@ struct ContentView: View {
             if let startWords = try? String(contentsOf: startWordsURL) {
                 let allWords = startWords.components(separatedBy: "\n")
                 rootWord = allWords.randomElement() ?? "silkworm"
+                usedWords = [String]()
+                currentScore = 0
                 return
             }
         }
@@ -104,6 +129,18 @@ struct ContentView: View {
         let misspelledRange = checker.rangeOfMisspelledWord(in: word, range: range, startingAt: 0, wrap: false, language: "en")
         
         return misspelledRange.location == NSNotFound
+    }
+    
+    func isRootWord(word: String) -> Bool {
+        return !(word == rootWord)
+    }
+    
+    func isShortWord(word: String) -> Bool {
+        if word.count < 3 {
+            return false
+        } else {
+            return true
+        }
     }
     
     func wordError(title: String, message: String) {
